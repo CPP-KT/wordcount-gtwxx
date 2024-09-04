@@ -1,4 +1,5 @@
 sys_exit:       equ             60
+ONE:            equ             1
 
                 section         .text
                 global          _start
@@ -6,7 +7,7 @@ sys_exit:       equ             60
 buf_size:       equ             8192
 _start:
                 xor             rbx, rbx
-                mov             r10, 1
+                mov             r10, ONE
                 sub             rsp, buf_size
                 mov             rsi, rsp
 
@@ -25,28 +26,27 @@ read_again:
 check_char:
                 cmp             rcx, rax
                 je              read_again
-                cmp             byte [rsi + rcx], 0x09
+                mov             dl, byte [rsi + rcx]
+                cmp             dl, 0x09
+                jl              skip
+                cmp             dl, 0x20
                 je              match
-                cmp             byte [rsi + rcx], 0x0a
-                je              match
-                cmp             byte [rsi + rcx], 0x0b
-                je              match
-                cmp             byte [rsi + rcx], 0x0c
-                je              match
-                cmp             byte [rsi + rcx], 0x0d
-                je              match
-                cmp             byte [rsi + rcx], 0x20
-                je              match
-                xor             r10, r10
+                cmp             dl, 0x0d
+                jle             match
+
+; don't add 1 to counter (rbx) and jumps to next char
 skip:
+                xor             r10, r10
                 inc             rcx
                 jmp             check_char
+
+; add 1 to counter (rbx) and jumps to next char
 match:
                 inc             rbx
                 sub             rbx, r10
-                mov             r10, 1
-                jmp             skip
-
+                mov             r10, ONE
+                inc             rcx
+                jmp             check_char
 
 quit:
                 inc             rbx
@@ -54,6 +54,7 @@ quit:
                 mov             rax, rbx
                 call            print_int
 
+                add             rsp, buf_size
                 mov             rax, sys_exit
                 xor             rdi, rdi
                 syscall
@@ -75,8 +76,8 @@ next_char:
                 test            rax, rax
                 jnz             next_char
 
-                mov             rax, 1
-                mov             rdi, 1
+                mov             rax, ONE
+                mov             rdi, ONE
                 mov             rdx, rsp
                 sub             rdx, rsi
                 syscall
@@ -84,14 +85,14 @@ next_char:
                 ret
 
 read_error:
-                mov             eax, 1
+                mov             eax, ONE
                 mov             edi, 2
                 mov             rsi, read_error_msg
                 mov             rdx, read_error_len
                 syscall
 
                 mov             rax, sys_exit
-                mov             edi, 1
+                mov             edi, ONE
                 syscall
 
                 section         .rodata
